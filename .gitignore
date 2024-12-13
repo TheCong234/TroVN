@@ -1,0 +1,3 @@
+# Ignore file .env
+/tro-client/.env
+/tro-server/.env

@@ -1,0 +1,35 @@
+.blog-post {
+  p {
+    font-size: 18px;
+    margin-bottom: 8px;
+  }
+  h2 {
+    font-size: 28px;
+    padding: 24px 0 12px 0;
+  }
+  img {
+    padding: 8px 0;
+    width: 100%;
+  }
+  ul {
+    padding-left: 24px;
+    list-style: disc;
+    li {
+      font-size: 18px;
+    }
+  }
+  pre {
+    background: #f1f2f3;
+    border-radius: 8px;
+    padding: 8px;
+  }
+}
+
+.broadcast-message-modal {
+  ul {
+    padding-left: 10px;
+    li {
+      list-style: circle;
+    }
+  }
+}

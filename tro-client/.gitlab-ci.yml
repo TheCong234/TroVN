@@ -1,0 +1,46 @@
+stages:
+  - build
+  - deploy
+
+variables:
+  DOCKER_TLS_CERTDIR: "/certs"
+
+build:
+  stage: build
+  image: docker:20.10.16
+  services:
+    - docker:20.10.16-dind
+  before_script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+  script:
+    - docker build -t $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA .
+    - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
+  only:
+    - dev
+
+deploy:
+  stage: deploy
+  image: alpine:latest
+  before_script:
+    - apk add --no-cache openssh-client
+    - eval $(ssh-agent -s)
+    - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add -
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+    - ssh-keyscan -H $VPS_HOST >> ~/.ssh/known_hosts
+    - chmod 644 ~/.ssh/known_hosts
+  script:
+    - ssh $VPS_USER@$VPS_HOST "docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY"
+    - ssh $VPS_USER@$VPS_HOST "docker pull $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA"
+    - ssh $VPS_USER@$VPS_HOST "docker stop tro-client || true && docker rm tro-client || true"
+    - |
+      ssh $VPS_USER@$VPS_HOST "docker run -d --name tro-client -p 5173:5173 \
+        $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA"
+  only:
+    - dev
+
+        # -e VITE_APP_MAPBOX_TOKEN=${VITE_APP_MAPBOX_TOKEN} \
+        # -e VITE_APP_LOCATION_API=${VITE_APP_LOCATION_API} \
+        # -e VITE_APP_MAP_API=${VITE_APP_MAP_API} \
+        # -e VITE_APP_GEMINI_AI_KEY=${VITE_APP_GEMINI_AI_KEY} \
+        # -e VITE_APP_BACKEND_URL=${VITE_APP_BACKEND_URL} \

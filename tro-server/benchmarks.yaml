@@ -1,0 +1,10 @@
+config:
+  target: "http://manhcuong.id.vn/api/v1"
+  phases:
+    - duration:  60 # Kiểm tra trong 60 giây
+      arrivalRate: 50 # Số lượng yêu cầu mỗi giây
+scenarios:
+  - flow:
+      - get:
+          url: "/listings?page=1&limit=1" # Đổi URL này thành endpoint bạn muốn kiểm tra
+# listings?page=0&limit=1000

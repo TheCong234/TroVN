@@ -1,0 +1,548 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+//provider = "cockroachdb"
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  USER
+  HOST
+  ADMIN
+}
+
+enum ReportStatus {
+  PENDING
+  RESOLVED
+}
+
+enum TermType {
+  LONG
+  SHORT
+  BOTH
+}
+
+enum PolicyType {
+  PRIVACY_POLICY
+  TERMS_OF_SERVICE
+}
+
+enum ConversationType {
+  SUPPORT
+  RENT
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMER
+  DONE
+  CANCELED
+}
+
+enum RentedStatus {
+  PENDING
+  CONFIRMER
+  CANCELLED
+}
+
+enum WithdrawalStatus {
+  PENDING // Đang chờ xử lý
+  APPROVED // Đã duyệt
+  REJECTED // Từ chối
+  COMPLETED // Hoàn tất
+}
+
+enum TransactionType {
+  DEPOSIT // Nạp tiền
+  WITHDRAWAL // Rút tiền
+  FEE // Phí dịch vụ
+}
+
+enum TransactionStatus {
+  PENDING // Đang chờ xử lý
+  SUCCESS // Thành công
+  FAILED // Thất bại
+}
+
+model Banner {
+  id          String   @id @default(uuid())
+  imageUrl    String
+  title       String
+  description String
+  fromDate    DateTime
+  toDate      DateTime
+  isAvailable Boolean  @default(true)
+  isActive    Boolean  @default(true)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model User {
+  id              String   @id @default(uuid())
+  username        String   @unique
+  email           String   @unique
+  phoneNumber     String   @default("")
+  password        String
+  avatarUrl       String   @default("https://api.dicebear.com/7.x/miniavs/svg?seed=3")
+  address         String   @default("")
+  role            Role     @default(USER)
+  isPremium       Boolean  @default(false)
+  latitude        Float?
+  longitude       Float?
+  isVerify        Boolean  @default(false)
+  fullName        String   @default("")
+  googleAccountId String   @default("")
+  description     String   @default("")
+  violationCount  Int      @default(0)
+  isLooked        Boolean  @default(false)
+  limit           Int      @default(10)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Mini App 
+  zaloId     String? @default("")
+  zaloAvatar String? @default("")
+  zaloName   String? @default("")
+  zaloIdByOA String? @default("")
+
+  // relationship
+  listings               Listing[]
+  messages               Message[]
+  conversationsInitiated Conversation[]       @relation("userOne")
+  conversationsReceived  Conversation[]       @relation("userTwo")
+  reviews                Review[]
+  favorites              Favorite[]
+  reporterInitiated      Report[]             @relation("reporterUser")
+  reportedReceived       Report[]             @relation("reportedUser")
+  banners                Banner[]
+  userOtps               UserOtp[]
+  orderItems             OrderItem[]
+  payments               Payment[]
+  AdvertisingPackage     AdvertisingPackage?  @relation(fields: [advertisingPackageId], references: [id])
+  advertisingPackageId   String?
+  BlogPost               BlogPost[]
+  SearchHistory          SearchHistory[]
+  Appointment            Appointment[]
+  rentedRoom             RentedRoom[]
+  Notification           Notification[]
+  withdrawalRequest      WithdrawalRequest[]
+  TransactionHistory     TransactionHistory[]
+  paymentInfo            PaymentInfo[]
+
+  @@index([email, phoneNumber])
+}
+
+model Location {
+  id        String    @id @default(uuid())
+  name      String
+  country   String
+  city      String
+  latitude  Float
+  longitude Float
+  listings  Listing[]
+}
+
+model Amenity {
+  id               String           @id @default(uuid())
+  name             String
+  description      String           @default("")
+  iconUrl          String
+  listingAmenities ListingAmenity[]
+}
+
+model Tag {
+  id          String       @id @default(uuid())
+  name        String       @unique
+  description String       @default("")
+  listingTags ListingTag[]
+
+  @@index([name])
+}
+
+model ListingTag {
+  id        String  @id @default(uuid())
+  listingId String
+  listings  Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  tagId     String
+  tag       Tag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
+}
+
+model Image {
+  id        String  @id @default(uuid())
+  url       String
+  caption   String  @default("")
+  listingId String
+  listing   Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+}
+
+model Invoice {
+  id             String   @id @default(uuid())
+  electricityFee Float // Tiền điện
+  waterFee       Float // Tiền nước
+  otherFee       Float // Chi phí khác
+  totalAmount    Float // Tổng số tiền phải trả
+  paymentStatus  Boolean  @default(false) // Trạng thái thanh toán
+  dueDate        DateTime // Hạn thanh toán
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  rentedRoomId String
+  rentedRoom   RentedRoom  @relation(fields: [rentedRoomId], references: [id], onDelete: Cascade)
+  orderItems   OrderItem[]
+}
+
+model Package {
+  id          String @id @default(uuid())
+  name        String
+  description String
+  price       String
+  duration    String
+  limit       Int
+  image       String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Listing {
+  id          String   @id @default(uuid())
+  title       String
+  description String
+  address     String
+  latitude    Float
+  longitude   Float
+  price       Decimal
+  area        Decimal
+  term        TermType @default(BOTH)
+  isPublish   Boolean  @default(false)
+  hot         Boolean  @default(false)
+  verify      Boolean  @default(false)
+  isRented    Boolean  @default(false)
+
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  locationId String
+  location   Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  listingTags      ListingTag[]
+  images           Image[]
+  reviews          Review[]
+  favorites        Favorite[]
+  listingAmenities ListingAmenity[]
+  Conversation     Conversation[]
+  Appointment      Appointment[]
+  rentedRoom       RentedRoom[]
+
+  @@index([userId, latitude, longitude])
+}
+
+model Conversation {
+  id     String           @id @default(uuid())
+  type   ConversationType @default(RENT)
+  rented Boolean          @default(false)
+
+  listingId String
+  listing   Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  userOneId String
+  userOne   User   @relation("userOne", fields: [userOneId], references: [id], onDelete: Cascade)
+
+  userTwoId String
+  userTwo   User   @relation("userTwo", fields: [userTwoId], references: [id], onDelete: Cascade)
+
+  messages Message[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@index([userTwoId])
+}
+
+model ListingAmenity {
+  id        String  @id @default(uuid())
+  listingId String
+  amenityId String
+  listing   Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  amenity   Amenity @relation(fields: [amenityId], references: [id], onDelete: Cascade)
+}
+
+model Message {
+  id      String @id @default(uuid())
+  content String
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  deleted        Boolean      @default(false)
+  isSeen         Boolean      @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([conversationId])
+}
+
+model Review {
+  id      String @id @default(uuid())
+  rating  Int
+  content String @default("")
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  listingId String
+  listing   Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, listingId])
+}
+
+model Favorite {
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  listingId String
+  listing   Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+}
+
+model Report {
+  id        String  @id @default(uuid())
+  content   String
+  isActive  Boolean @default(true)
+  isProcess Boolean @default(false)
+
+  reporterId   String
+  reporterUser User   @relation("reporterUser", fields: [reporterId], references: [id], onDelete: Cascade)
+
+  reportedId   String
+  reportedUser User   @relation("reportedUser", fields: [reportedId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([reporterId, reportedId])
+}
+
+model UserOtp {
+  id       String  @id @default(uuid())
+  otp      String?
+  isActive Boolean @default(true)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model AdvertisingPackage {
+  id          String      @id @default(uuid())
+  name        String
+  description String?
+  duration    Int
+  price       Float
+  users       User[]
+  orderItems  OrderItem[]
+}
+
+model Payment {
+  id            String  @id @default(uuid())
+  amount        Float?
+  status        Boolean
+  provider      String?
+  note          String? @default("")
+  transactionId String  @unique
+  isActive      Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId     String
+  user       User        @relation(fields: [userId], references: [id])
+  orderItems OrderItem[]
+
+  @@index([transactionId])
+}
+
+model OrderItem {
+  id     String @id @default(uuid())
+  amount Float
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  paymentId String
+  payment   Payment @relation(fields: [paymentId], references: [id])
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  advertisingPackageId String?
+  advertisingPackage   AdvertisingPackage? @relation(fields: [advertisingPackageId], references: [id])
+  invoiceId            String?
+  invoice              Invoice?            @relation(fields: [invoiceId], references: [id])
+}
+
+model BlogPost {
+  id          String    @id @default(uuid())
+  title       String
+  slug        String
+  content     String
+  thumbnail   String
+  published   Boolean   @default(false)
+  publishedAt DateTime?
+  authorId    String
+  author      User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  tags        BlogTag[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+model BlogTag {
+  id        String     @id @default(uuid())
+  name      String
+  blogPosts BlogPost[]
+}
+
+model Policy {
+  id        String     @id @default(uuid())
+  title     String
+  content   String
+  type      PolicyType
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
+model SearchHistory {
+  id        String   @id @default(uuid())
+  content   String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Appointment {
+  id              String            @id @default(uuid())
+  appointmentDate DateTime
+  status          AppointmentStatus @default(PENDING)
+
+  userId    String
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  listingId String
+  listing   Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model RentedRoom {
+  id                String       @id @default(uuid())
+  listingId         String
+  listing           Listing      @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  userId            String
+  user              User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  startDate         DateTime
+  endDate           DateTime
+  status            RentedStatus @default(PENDING)
+  isTenantConfirmed Boolean      @default(false)
+  isOwnerConfirmed  Boolean      @default(false)
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  invoice           Invoice[]
+
+  @@unique([listingId, userId, startDate])
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  type      String
+  title     String
+  message   String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  data      Json?
+
+  listingId String?
+  userId    String
+  user      User    @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
+model WithdrawalRequest {
+  id          String           @id @default(uuid())
+  amount      Float
+  status      WithdrawalStatus @default(PENDING)
+  requestedAt DateTime         @default(now())
+  processedAt DateTime?
+  notes       String?
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  paymentInfoId String? // ID của phương thức thanh toán mà người dùng chọn
+  paymentInfo   PaymentInfo? @relation(fields: [paymentInfoId], references: [id])
+
+  TransactionHistory TransactionHistory[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, status])
+}
+
+model TransactionHistory {
+  id        String            @id @default(uuid())
+  type      TransactionType // Loại giao dịch (nạp tiền, rút tiền)
+  amount    Float // Số tiền
+  status    TransactionStatus @default(PENDING) // Trạng thái giao dịch
+  fee       Float
+  netAmount Float
+  userId    String
+  user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  paymentInfoId String? // Tham chiếu tới PaymentInfo
+  paymentInfo   PaymentInfo? @relation(fields: [paymentInfoId], references: [id])
+
+  withdrawalRequestId String? // ID yêu cầu rút tiền nếu là giao dịch rút tiền
+  withdrawalRequest   WithdrawalRequest? @relation(fields: [withdrawalRequestId], references: [id])
+
+  @@index([userId, status])
+}
+
+model PaymentInfo {
+  id            String  @id @default(uuid())
+  userId        String
+  type          String // Loại thanh toán: 'bank', 'e-wallet', v.v.
+  accountName   String? // Tên tài khoản ngân hàng hoặc ví điện tử
+  accountNumber String? // Số tài khoản hoặc mã ví
+  provider      String? // Nhà cung cấp dịch vụ thanh toán, ví dụ: 'Vietcombank', 'MoMo', v.v.
+  isPrimary     Boolean @default(false) // Xác định đây có phải là phương thức thanh toán chính không
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user               User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  WithdrawalRequest  WithdrawalRequest[]
+  TransactionHistory TransactionHistory[]
+
+  @@index([userId, isPrimary])
+}
